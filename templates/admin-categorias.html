@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuienLoTiene - Admin Categorías</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tree-line { border-left: 2px dashed #cbd5e1; padding-left: 1.5rem; margin-left: 0.75rem; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">QuienLoTiene</h1>
+            <nav class="space-x-4">
+                <a href="/" class="hover:underline">Inicio</a>
+                <a href="/registro" class="hover:underline">Registrarse</a>
+                <a href="/proveedor" class="hover:underline">Soy Proveedor</a>
+                <a href="/mis-solicitudes" class="hover:underline">Mis Solicitudes</a>
+                <a href="/admin/categorias" class="underline font-bold">Admin</a>
+            </nav>
+        </div>
+    </header>
+
+    <section class="bg-blue-700 text-white py-8">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl font-bold mb-2">Administración de Categorías</h2>
+            <p class="opacity-90">Crea y organiza el árbol de categorías (Industrial → Automotriz → Daihatsu → Terios)</p>
+        </div>
+    </section>
+
+    <div class="container mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- FORMULARIO PARA CREAR CATEGORIA -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-lg shadow-lg p-6 sticky top-4">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">➕ Nueva categoría</h3>
+
+                <form id="formCategoria" class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Nombre *</label>
+                        <input type="text" name="nombre" required
+                               placeholder="Ej: Automotriz"
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Categoría padre (opcional)</label>
+                        <select name="padre_id"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">— Ninguna (será categoría raíz) —</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Deja vacío para crear una categoría principal</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Tipo (opcional)</label>
+                        <select name="tipo"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">— Sin tipo —</option>
+                            <option value="repuesto">Repuesto</option>
+                            <option value="suministro">Suministro</option>
+                            <option value="servicio">Servicio</option>
+                        </select>
+                    </div>
+
+                    <button type="submit"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
+                        Crear categoría
+                    </button>
+                </form>
+
+                <div id="mensajeForm" class="mt-4 hidden"></div>
+            </div>
+        </div>
+
+        <!-- ARBOL DE CATEGORIAS -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-800">🌳 Árbol de categorías</h3>
+                    <button onclick="cargarArbol()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                        🔄 Refrescar
+                    </button>
+                </div>
+
+                <div id="arbolCategorias" class="space-y-2">
+                    <p class="text-gray-500">Cargando árbol...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>QuienLoTiene &copy; 2026 - Conectando personas con lo que necesitan</p>
+        </div>
+    </footer>
+
+    <script>
+        let arbolActual = [];
+
+        // ============================================================
+        // Cargar arbol de categorias
+        // ============================================================
+        async function cargarArbol() {
+            try {
+                const resp = await fetch('/api/categorias/arbol');
+                const data = await resp.json();
+                arbolActual = data.arbol;
+
+                const contenedor = document.getElementById('arbolCategorias');
+
+                if (arbolActual.length === 0) {
+                    contenedor.innerHTML = `
+                        <div class="text-center py-8">
+                            <p class="text-gray-500 mb-2">No hay categorías aún.</p>
+                            <p class="text-sm text-gray-400">Crea la primera con el formulario de la izquierda.</p>
+                        </div>
+                    `;
+                    actualizarSelectPadres();
+                    return;
+                }
+
+                contenedor.innerHTML = '';
+                arbolActual.forEach(cat => {
+                    contenedor.appendChild(renderNodo(cat, 0));
+                });
+
+                actualizarSelectPadres();
+            } catch (e) {
+                console.error('Error cargando árbol:', e);
+                document.getElementById('arbolCategorias').innerHTML =
+                    '<p class="text-red-500">Error al cargar. Revisa la consola.</p>';
+            }
+        }
+
+        // ============================================================
+        // Renderizar un nodo de categoria recursivamente
+        // ============================================================
+        function renderNodo(cat, nivel) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'mb-2';
+
+            const tieneHijos = cat.hijos && cat.hijos.length > 0;
+
+            // Colores por tipo
+            let colorBadge = 'bg-gray-100 text-gray-700';
+            if (cat.tipo === 'repuesto') colorBadge = 'bg-purple-100 text-purple-700';
+            if (cat.tipo === 'suministro') colorBadge = 'bg-green-100 text-green-700';
+            if (cat.tipo === 'servicio') colorBadge = 'bg-blue-100 text-blue-700';
+
+            // Colores por nivel de profundidad
+            const nivelesColor = ['bg-blue-50 border-blue-200', 'bg-gray-50 border-gray-200', 'bg-white border-gray-100', 'bg-white border-gray-100'];
+            const claseBox = nivelesColor[Math.min(nivel, 3)];
+
+            const div = document.createElement('div');
+            div.className = `border ${claseBox} rounded-lg p-3 flex justify-between items-center`;
+
+            div.innerHTML = `
+                <div class="flex items-center gap-3 flex-1">
+                    <span class="font-mono text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">#${cat.id}</span>
+                    <span class="font-medium text-gray-800">${cat.nombre}</span>
+                    ${cat.tipo ? `<span class="${colorBadge} text-xs px-2 py-0.5 rounded-full">${cat.tipo}</span>` : ''}
+                    ${tieneHijos ? `<span class="text-xs text-gray-500">(${cat.hijos.length} hijo${cat.hijos.length > 1 ? 's' : ''})</span>` : ''}
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="prepararPadre(${cat.id})"
+                            class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                            title="Usar como padre de una nueva categoría">
+                        + Subcategoría
+                    </button>
+                    <button onclick="eliminarCategoria(${cat.id}, '${cat.nombre.replace(/'/g, "\\\\'")}')"
+                            class="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                            title="Desactivar esta categoría">
+                        ✕
+                    </button>
+                </div>
+            `;
+            wrapper.appendChild(div);
+
+            // Renderizar hijos
+            if (tieneHijos) {
+                const hijosWrapper = document.createElement('div');
+                hijosWrapper.className = 'tree-line mt-2';
+                cat.hijos.forEach(hijo => {
+                    hijosWrapper.appendChild(renderNodo(hijo, nivel + 1));
+                });
+                wrapper.appendChild(hijosWrapper);
+            }
+
+            return wrapper;
+        }
+
+        // ============================================================
+        // Actualizar el select de categorias padre
+        // ============================================================
+        function actualizarSelectPadres() {
+            const select = document.querySelector('select[name="padre_id"]');
+            select.innerHTML = '<option value="">— Ninguna (será categoría raíz) —</option>';
+
+            function agregarOpciones(cats, prefijo) {
+                cats.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = prefijo + c.nombre;
+                    select.appendChild(opt);
+                    if (c.hijos && c.hijos.length > 0) {
+                        agregarOpciones(c.hijos, prefijo + '— ');
+                    }
+                });
+            }
+            agregarOpciones(arbolActual, '');
+        }
+
+        // ============================================================
+        // Preparar formulario con padre seleccionado
+        // ============================================================
+        function prepararPadre(padreId) {
+            const select = document.querySelector('select[name="padre_id"]');
+            select.value = padreId;
+            document.querySelector('input[name="nombre"]').focus();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ============================================================
+        // Crear categoria
+        // ============================================================
+        document.getElementById('formCategoria').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const mensaje = document.getElementById('mensajeForm');
+
+            try {
+                const resp = await fetch('/api/categorias', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    mensaje.className = 'mt-4 p-3 bg-green-100 text-green-800 rounded-lg text-sm';
+                    mensaje.textContent = '✅ Categoría creada';
+                    mensaje.classList.remove('hidden');
+                    e.target.reset();
+                    cargarArbol();
+                    setTimeout(() => mensaje.classList.add('hidden'), 3000);
+                } else {
+                    mensaje.className = 'mt-4 p-3 bg-red-100 text-red-800 rounded-lg text-sm';
+                    mensaje.textContent = '❌ ' + (data.error || 'Error');
+                    mensaje.classList.remove('hidden');
+                }
+            } catch (err) {
+                mensaje.className = 'mt-4 p-3 bg-red-100 text-red-800 rounded-lg text-sm';
+                mensaje.textContent = '❌ Error de conexión';
+                mensaje.classList.remove('hidden');
+            }
+        });
+
+        // ============================================================
+        // Eliminar (desactivar) categoria
+        // ============================================================
+        async function eliminarCategoria(catId, nombre) {
+            if (!confirm(`¿Desactivar la categoría "${nombre}"?\\n\\nLos hijos y solicitudes existentes no se borran, pero la categoría ya no aparecerá en los formularios.`)) {
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/categorias/${catId}`, { method: 'DELETE' });
+                const data = await resp.json();
+                if (data.ok) {
+                    cargarArbol();
+                } else {
+                    alert('Error: ' + (data.error || ''));
+                }
+            } catch (e) {
+                alert('Error de conexión');
+            }
+        }
+
+        // Cargar al inicio
+        cargarArbol();
+    </script>
+</body>
+</html>

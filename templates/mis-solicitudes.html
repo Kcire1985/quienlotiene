@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuienLoTiene - Mis Solicitudes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">QuienLoTiene</h1>
+            <nav class="space-x-4">
+                <a href="/" class="hover:underline">Inicio</a>
+                <a href="/registro" class="hover:underline">Registrarse</a>
+                <a href="/proveedor" class="hover:underline">Soy Proveedor</a>
+                <a href="/mis-solicitudes" class="underline font-bold">Mis Solicitudes</a>
+            </nav>
+        </div>
+    </header>
+
+    <section class="bg-blue-700 text-white py-8">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl font-bold mb-2">Mis Solicitudes</h2>
+            <p class="opacity-90">Aquí ves tus solicitudes y las ofertas que has recibido</p>
+        </div>
+    </section>
+
+    <section class="container mx-auto px-4 py-6">
+        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4 flex items-center justify-between">
+            <div>
+                <p class="text-sm text-yellow-800">Viendo solicitudes de:</p>
+                <p class="font-bold text-yellow-900">Cliente ID: <span id="miId">1</span></p>
+            </div>
+            <button onclick="cambiarCliente()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                Cambiar
+            </button>
+        </div>
+    </section>
+
+    <section class="container mx-auto px-4 py-6">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold text-gray-800">Mis publicaciones</h3>
+            <button onclick="cargarMisSolicitudes()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                🔄 Refrescar
+            </button>
+        </div>
+        <div id="listaSolicitudes" class="space-y-6">
+            <p class="text-gray-500">Cargando tus solicitudes...</p>
+        </div>
+    </section>
+
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>QuienLoTiene &copy; 2026 - Conectando personas con lo que necesitan</p>
+        </div>
+    </footer>
+
+    <!-- MODAL DE WHATSAPP -->
+    <div id="modalWhatsApp" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-2xl max-w-md w-full p-6 text-center">
+            <div class="text-5xl mb-4">🎉</div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">¡Oferta aceptada!</h3>
+            <p class="text-gray-600 mb-4">Ya puedes contactar al proveedor por WhatsApp</p>
+            <div class="bg-gray-100 rounded-lg p-4 mb-4 text-left">
+                <p class="text-sm text-gray-600 mb-1">Proveedor:</p>
+                <p id="waNombre" class="font-bold text-lg mb-3">-</p>
+                <p class="text-sm text-gray-600 mb-1">WhatsApp:</p>
+                <p id="waNumero" class="font-mono font-bold text-lg mb-3">-</p>
+                <p class="text-sm text-gray-600 mb-1">Precio ofertado:</p>
+                <p id="waPrecio" class="font-bold text-lg">-</p>
+            </div>
+            <a id="waLink" href="#" target="_blank"
+               class="block w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg mb-2">
+                💬 Abrir WhatsApp
+            </a>
+            <button onclick="cerrarModalWhatsApp()"
+                    class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 rounded-lg">
+                Cerrar
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let clienteIdActual = 1;
+
+        function cambiarCliente() {
+            const nuevo = prompt("Ingresa el ID del cliente:", clienteIdActual);
+            if (nuevo && !isNaN(nuevo)) {
+                clienteIdActual = parseInt(nuevo);
+                document.getElementById('miId').textContent = clienteIdActual;
+                cargarMisSolicitudes();
+            }
+        }
+
+        async function cargarMisSolicitudes() {
+            try {
+                const resp = await fetch(`/api/solicitudes/cliente/${clienteIdActual}`);
+                const data = await resp.json();
+                const contenedor = document.getElementById('listaSolicitudes');
+
+                if (data.solicitudes.length === 0) {
+                    contenedor.innerHTML = `
+                        <div class="bg-white rounded-lg shadow p-8 text-center">
+                            <p class="text-gray-500 mb-4">No tienes solicitudes publicadas aún.</p>
+                            <a href="/" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+                                Publicar mi primera solicitud
+                            </a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                contenedor.innerHTML = '';
+                for (const sol of data.solicitudes) {
+                    const div = document.createElement('div');
+                    div.className = 'bg-white rounded-lg shadow-lg p-6';
+
+                    let estadoColor = 'bg-green-100 text-green-700';
+                    if (sol.estado === 'asignada') estadoColor = 'bg-blue-100 text-blue-700';
+                    if (sol.estado === 'con_ofertas') estadoColor = 'bg-yellow-100 text-yellow-700';
+                    if (sol.estado === 'finalizada') estadoColor = 'bg-gray-100 text-gray-700';
+                    if (sol.estado === 'cancelada') estadoColor = 'bg-red-100 text-red-700';
+
+                    // Botones de accion segun el estado
+                    let botonesSolicitud = '';
+                    if (sol.estado === 'nueva' || sol.estado === 'con_ofertas') {
+                        botonesSolicitud = `
+                            <button onclick="cancelarSolicitud(${sol.id})"
+                                    class="text-sm text-red-600 hover:text-red-800 underline">
+                                Cancelar solicitud (ya no la necesito)
+                            </button>
+                        `;
+                    } else if (sol.estado === 'asignada') {
+                        botonesSolicitud = `
+                            <div class="flex gap-3 flex-wrap">
+                                <button onclick="cerrarTrato(${sol.id})"
+                                        class="text-sm bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded-lg">
+                                    ✓ Cerrar trato definitivamente
+                                </button>
+                                <button onclick="cancelarSolicitud(${sol.id})"
+                                        class="text-sm text-red-600 hover:text-red-800 underline">
+                                    Cancelar solicitud
+                                </button>
+                            </div>
+                        `;
+                    } else if (sol.estado === 'finalizada') {
+                        botonesSolicitud = `
+                            <p class="text-sm text-green-700 font-medium">✓ Trato cerrado con éxito</p>
+                        `;
+                    } else if (sol.estado === 'cancelada') {
+                        botonesSolicitud = `
+                            <p class="text-sm text-red-700 font-medium">✗ Solicitud cancelada</p>
+                        `;
+                    }
+
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h4 class="text-xl font-bold text-gray-800">${sol.titulo}</h4>
+                                <p class="text-gray-600 mt-1">${sol.descripcion || 'Sin descripción'}</p>
+                            </div>
+                            <span class="${estadoColor} text-xs px-3 py-1 rounded-full font-medium uppercase">
+                                ${sol.estado}
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-500 mb-4">
+                            📍 ${sol.ubicacion || 'Sin ubicación'} · 📅 ${sol.fecha_creacion?.slice(0, 10) || ''}
+                        </div>
+                        <div id="ofertas-${sol.id}" class="border-t pt-4 mb-4">
+                            <p class="text-gray-500 text-sm">Cargando ofertas...</p>
+                        </div>
+                        <div class="border-t pt-3">
+                            ${botonesSolicitud}
+                        </div>
+                    `;
+                    contenedor.appendChild(div);
+
+                    cargarOfertasDeSolicitud(sol.id, sol.estado);
+                }
+            } catch (e) {
+                console.error('Error cargando solicitudes:', e);
+            }
+        }
+
+        async function cargarOfertasDeSolicitud(solicitudId, estadoSolicitud) {
+            try {
+                const resp = await fetch(`/api/solicitudes/${solicitudId}/ofertas-detalladas`);
+                const data = await resp.json();
+                const contenedor = document.getElementById(`ofertas-${solicitudId}`);
+
+                if (data.ofertas.length === 0) {
+                    contenedor.innerHTML = '<p class="text-gray-400 text-sm italic">Aún no hay ofertas para esta solicitud.</p>';
+                    return;
+                }
+
+                contenedor.innerHTML = `
+                    <p class="font-medium text-gray-700 mb-3">
+                        📬 ${data.ofertas.length} oferta${data.ofertas.length > 1 ? 's' : ''} recibida${data.ofertas.length > 1 ? 's' : ''}:
+                    </p>
+                `;
+
+                data.ofertas.forEach(of => {
+                    const cardOferta = document.createElement('div');
+                    cardOferta.className = 'bg-gray-50 rounded-lg p-4 mb-2 border border-gray-200';
+
+                    const proveedor = of.proveedor || {};
+                    const esAceptada = of.estado === 'aceptada';
+                    const esPendiente = of.estado === 'pendiente';
+
+                    let botones = '';
+
+                    if (esAceptada) {
+                        // Oferta aceptada: mostrar WhatsApp + boton cambiar
+                        botones = `
+                            <div class="mt-3 p-3 bg-green-100 rounded-lg">
+                                <p class="text-green-800 font-medium text-sm mb-2">✅ Oferta aceptada</p>
+                                <div class="flex gap-2 flex-wrap">
+                                    <a href="https://wa.me/${(proveedor.whatsapp || '').replace(/\\D/g, '')}?text=Hola ${proveedor.nombre}, vi tu oferta en QuienLoTiene y quiero coordinar."
+                                       target="_blank"
+                                       class="inline-block bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-4 py-2 rounded-lg">
+                                        💬 WhatsApp
+                                    </a>
+                                    <button onclick="cambiarProveedor(${of.id})"
+                                            class="inline-block bg-gray-500 hover:bg-gray-600 text-white text-sm font-bold px-4 py-2 rounded-lg">
+                                        🔄 Cambiar de proveedor
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    } else if (esPendiente && (estadoSolicitud === 'nueva' || estadoSolicitud === 'con_ofertas')) {
+                        // Oferta pendiente: boton aceptar
+                        botones = `
+                            <button onclick="aceptarOferta(${of.id}, '${(proveedor.nombre || '').replace(/'/g, "\\\\'")}', '${(proveedor.whatsapp || '').replace(/'/g, "\\\\'")}', '${of.precio || ''}')"
+                                    class="mt-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-lg">
+                                ✓ Aceptar esta oferta
+                            </button>
+                        `;
+                    } else if (esPendiente && estadoSolicitud === 'asignada') {
+                        botones = `
+                            <p class="mt-3 text-sm text-gray-500 italic">Otra oferta ya fue aceptada. Puedes cambiar de proveedor desde arriba.</p>
+                        `;
+                    } else if (of.estado === 'rechazada') {
+                        botones = `<p class="mt-3 text-sm text-gray-500 italic">Oferta rechazada</p>`;
+                    }
+
+                    cardOferta.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <p class="font-bold text-gray-800">${proveedor.nombre || 'Proveedor'}</p>
+                                <p class="text-gray-600 text-sm mt-1">${of.mensaje}</p>
+                                ${of.precio ? `<p class="text-blue-600 font-bold mt-2">Precio: $${of.precio}</p>` : ''}
+                                <p class="text-xs text-gray-400 mt-1">${of.fecha_creacion?.slice(0, 10) || ''}</p>
+                            </div>
+                            <span class="text-xs px-2 py-1 rounded ${of.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-700' : of.estado === 'aceptada' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+                                ${of.estado}
+                            </span>
+                        </div>
+                        ${botones}
+                    `;
+                    contenedor.appendChild(cardOferta);
+                });
+            } catch (e) {
+                console.error('Error cargando ofertas:', e);
+            }
+        }
+
+        async function aceptarOferta(ofertaId, proveedorNombre, proveedorWhatsapp, precio) {
+            if (!confirm(`¿Aceptar la oferta de ${proveedorNombre}?`)) return;
+
+            try {
+                const resp = await fetch(`/api/ofertas/${ofertaId}/aceptar`, { method: 'POST' });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    document.getElementById('waNombre').textContent = proveedorNombre;
+                    document.getElementById('waNumero').textContent = proveedorWhatsapp || 'No disponible';
+                    document.getElementById('waPrecio').textContent = precio ? '$' + precio : 'No especificado';
+                    const numeroLimpio = (proveedorWhatsapp || '').replace(/\\D/g, '');
+                    document.getElementById('waLink').href = `https://wa.me/${numeroLimpio}?text=Hola ${proveedorNombre}, vi tu oferta en QuienLoTiene y quiero coordinar la entrega.`;
+                    document.getElementById('modalWhatsApp').classList.remove('hidden');
+                    cargarMisSolicitudes();
+                } else {
+                    alert('Error: ' + (data.error || 'Intenta de nuevo'));
+                }
+            } catch (e) {
+                alert('Error de conexión');
+            }
+        }
+
+        async function cambiarProveedor(ofertaId) {
+            if (!confirm('¿Cancelar esta aceptación y volver a ver todas las ofertas?')) return;
+            try {
+                const resp = await fetch(`/api/ofertas/${ofertaId}/cancelar-aceptacion`, { method: 'POST' });
+                const data = await resp.json();
+                if (data.ok) {
+                    cargarMisSolicitudes();
+                } else {
+                    alert('Error: ' + (data.error || 'Intenta de nuevo'));
+                }
+            } catch (e) {
+                alert('Error de conexión');
+            }
+        }
+
+        async function cerrarTrato(solicitudId) {
+            if (!confirm('¿Confirmas que el trato se cerró con éxito? Esta acción rechazará las demás ofertas.')) return;
+            try {
+                const resp = await fetch(`/api/solicitudes/${solicitudId}/cerrar`, { method: 'POST' });
+                const data = await resp.json();
+                if (data.ok) {
+                    alert('✅ Trato cerrado con éxito');
+                    cargarMisSolicitudes();
+                } else {
+                    alert('Error: ' + (data.error || 'Intenta de nuevo'));
+                }
+            } catch (e) {
+                alert('Error de conexión');
+            }
+        }
+
+        async function cancelarSolicitud(solicitudId) {
+            if (!confirm('¿Cancelar esta solicitud? Ya no aparecerá como activa.')) return;
+            try {
+                const resp = await fetch(`/api/solicitudes/${solicitudId}/cancelar`, { method: 'POST' });
+                const data = await resp.json();
+                if (data.ok) {
+                    cargarMisSolicitudes();
+                } else {
+                    alert('Error: ' + (data.error || 'Intenta de nuevo'));
+                }
+            } catch (e) {
+                alert('Error de conexión');
+            }
+        }
+
+        function cerrarModalWhatsApp() {
+            document.getElementById('modalWhatsApp').classList.add('hidden');
+        }
+
+        cargarMisSolicitudes();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+Todo el contenido necesario ha sido agregado a index.html para cumplir con los requisitos de consumir el endpoint GET /solicitudes y renderizar dinámicamente las publicaciones activas.

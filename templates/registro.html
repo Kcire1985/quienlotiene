@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuienLoTiene - Registro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- HEADER -->
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">QuienLoTiene</h1>
+            <nav class="space-x-4">
+                <a href="/" class="hover:underline">Inicio</a>
+                <a href="/registro" class="underline font-bold">Registrarse</a>
+                <a href="/proveedor" class="hover:underline">Soy Proveedor</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- FORMULARIO DE REGISTRO -->
+    <section class="container mx-auto px-4 py-12">
+        <div class="bg-white rounded-lg shadow-lg p-6 md:p-8 max-w-2xl mx-auto">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Crear cuenta</h2>
+            <p class="text-gray-600 mb-6">Regístrate como cliente o proveedor. Es gratis.</p>
+
+            <form id="formRegistro" class="space-y-4">
+                <div>
+                    <label for="nombre" class="block text-gray-700 font-medium mb-2">
+                        Nombre completo *
+                    </label>
+                    <input type="text" id="nombre" name="nombre" required
+                           placeholder="Ej: Erick Prada"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label for="email" class="block text-gray-700 font-medium mb-2">
+                        Correo electrónico *
+                    </label>
+                    <input type="email" id="email" name="email" required
+                           placeholder="tu@correo.com"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label for="rol" class="block text-gray-700 font-medium mb-2">
+                        ¿Cómo vas a usar QuienLoTiene? *
+                    </label>
+                    <select id="rol" name="rol" required
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Selecciona una opción</option>
+                        <option value="cliente">Cliente - busco cosas que necesito</option>
+                        <option value="proveedor">Proveedor - tengo cosas para vender</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="telefono" class="block text-gray-700 font-medium mb-2">
+                            Teléfono
+                        </label>
+                        <input type="tel" id="telefono" name="telefono"
+                               placeholder="+58 424-1234567"
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label for="whatsapp" class="block text-gray-700 font-medium mb-2">
+                            WhatsApp
+                        </label>
+                        <input type="tel" id="whatsapp" name="whatsapp"
+                               placeholder="+58 424-1234567"
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-gray-500 mt-1">Aquí te contactarán los clientes</p>
+                    </div>
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
+                    Crear cuenta
+                </button>
+            </form>
+
+            <!-- MENSAJE DE RESULTADO -->
+            <div id="mensaje" class="mt-4 hidden"></div>
+        </div>
+    </section>
+
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>QuienLoTiene &copy; 2026 - Conectando personas con lo que necesitan</p>
+        </div>
+    </footer>
+
+    <script>
+        document.getElementById('formRegistro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const mensaje = document.getElementById('mensaje');
+
+            try {
+                const resp = await fetch('/api/usuarios', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await resp.json();
+
+                if (data.ok) {
+                    const usuario = data.usuario[0];
+                    mensaje.className = 'mt-4 p-4 bg-green-100 text-green-800 rounded-lg';
+                    mensaje.innerHTML = `
+                        <p class="font-bold">✅ Cuenta creada con éxito</p>
+                        <p class="mt-2">Tu ID de usuario es: <span class="font-mono font-bold text-lg">${usuario.id}</span></p>
+                        <p class="mt-2">Guarda este número, lo necesitarás para publicar solicitudes u ofertas.</p>
+                        <p class="mt-2">Ve a: 
+                            <a href="${usuario.rol === 'proveedor' ? '/proveedor' : '/'}" class="underline font-bold">
+                                ${usuario.rol === 'proveedor' ? 'Panel de Proveedor' : 'Página Principal'}
+                            </a>
+                        </p>
+                    `;
+                    mensaje.classList.remove('hidden');
+                    e.target.reset();
+                } else {
+                    mensaje.className = 'mt-4 p-4 bg-red-100 text-red-800 rounded-lg';
+                    mensaje.textContent = '❌ Error: ' + (data.error || 'Intenta de nuevo');
+                    mensaje.classList.remove('hidden');
+                }
+            } catch (err) {
+                mensaje.className = 'mt-4 p-4 bg-red-100 text-red-800 rounded-lg';
+                mensaje.textContent = '❌ Error de conexión con el servidor';
+                mensaje.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

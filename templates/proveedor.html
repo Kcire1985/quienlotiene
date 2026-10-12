@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuienLoTiene - Panel Proveedor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center flex-wrap gap-2">
+            <h1 class="text-2xl font-bold">QuienLoTiene</h1>
+            <nav class="flex items-center gap-4 flex-wrap">
+                <a href="/" class="hover:underline">Inicio</a>
+                <a href="/registro" class="hover:underline">Registrarse</a>
+                <a href="/proveedor" class="underline font-bold">Soy Proveedor</a>
+                <a href="/mis-solicitudes" class="hover:underline">Mis Solicitudes</a>
+
+                <button onclick="abrirMisCategorias()" class="bg-white text-blue-600 hover:bg-blue-100 px-3 py-1 rounded-lg text-sm font-bold">
+                    ⚙️ Mis Categorías
+                </button>
+
+                <button onclick="toggleNotificaciones()" class="relative">
+                    <span class="text-2xl">🔔</span>
+                    <span id="badgeNotif" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- PANEL DE NOTIFICACIONES -->
+    <div id="panelNotificaciones" class="hidden bg-white shadow-lg border-b-2 border-blue-200">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-gray-800">🔔 Notificaciones</h3>
+                <button onclick="marcarTodasLeidas()" class="text-sm text-blue-600 hover:underline">
+                    Marcar todas como leídas
+                </button>
+            </div>
+            <div id="listaNotificaciones" class="space-y-2 max-h-96 overflow-y-auto">
+                <p class="text-gray-500 text-sm">Cargando...</p>
+            </div>
+        </div>
+    </div>
+
+    <section class="bg-blue-700 text-white py-8">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl font-bold mb-2">Panel del Proveedor</h2>
+            <p class="opacity-90">Aquí verás las solicitudes de los clientes y podrás ofertar</p>
+        </div>
+    </section>
+
+    <!-- SELECTOR DE PROVEEDOR -->
+    <section class="container mx-auto px-4 py-6">
+        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4 flex items-center justify-between">
+            <div>
+                <p class="text-sm text-yellow-800">Actuando como proveedor:</p>
+                <p class="font-bold text-yellow-900">
+                    ID: <span id="miId">2</span> — <span id="miNombre">Ferretería El Tornillo</span>
+                </p>
+                <p class="text-xs text-yellow-700 mt-1">
+                    Categorías: <span id="misCategoriasResumen">cargando...</span>
+                </p>
+            </div>
+            <button onclick="cambiarProveedor()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                Cambiar
+            </button>
+        </div>
+    </section>
+
+    <section class="container mx-auto px-4 py-6">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold text-gray-800">Solicitudes abiertas</h3>
+            <button onclick="cargarSolicitudes()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                🔄 Refrescar
+            </button>
+        </div>
+        <div id="listaSolicitudes" class="space-y-4">
+            <p class="text-gray-500">Cargando solicitudes...</p>
+        </div>
+    </section>
+
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>QuienLoTiene &copy; 2026 - Conectando personas con lo que necesitan</p>
+        </div>
+    </footer>
+
+    <!-- MODAL DE OFERTA -->
+    <div id="modalOferta" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Enviar oferta</h3>
+            <p id="tituloSolicitud" class="text-gray-600 mb-4"></p>
+            <form id="formOferta" class="space-y-4">
+                <input type="hidden" id="solicitud_id_modal" name="solicitud_id">
+                <input type="hidden" id="proveedor_id_modal" name="proveedor_id">
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Mensaje *</label>
+                    <textarea name="mensaje" required rows="3" placeholder="Ej: Tengo 10 tubos de 2x1, nuevos"
+                              class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Precio (opcional)</label>
+                    <input type="number" step="0.01" name="precio" placeholder="Ej: 25.00"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="cerrarModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 rounded-lg">Cancelar</button>
+                    <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg">Enviar oferta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL MIS CATEGORIAS -->
+    <div id="modalCategorias" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">⚙️ Mis Categorías</h3>
+                    <button onclick="cerrarModalCategorias()" class="text-gray-500 hover:text-gray-800 text-2xl">✕</button>
+                </div>
+                <p class="text-gray-600 text-sm mb-4">
+                    Marca las categorías en las que trabajas. Recibirás notificaciones de solicitudes que
+                    coincidan con <strong>cualquier categoría marcada</strong> o sus <strong>subcategorías</strong>.
+                </p>
+                <div id="arbolCategoriasCheck" class="bg-gray-50 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
+                    <p class="text-gray-500">Cargando categorías...</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="cerrarModalCategorias()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 rounded-lg">Cancelar</button>
+                    <button onclick="guardarMisCategorias()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg">💾 Guardar</button>
+                </div>
+                <div id="mensajeCategorias" class="mt-3 hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let proveedorIdActual = 2;
+        let arbolCategoriasData = [];
+        let misCategoriasIds = new Set();
+        let categoriasSeleccionadasTemp = new Set();
+
+        function cambiarProveedor() {
+            const nuevo = prompt("Ingresa el ID del proveedor:", proveedorIdActual);
+            if (nuevo && !isNaN(nuevo)) {
+                proveedorIdActual = parseInt(nuevo);
+                document.getElementById('miId').textContent = proveedorIdActual;
+                document.getElementById('miNombre').textContent = '(proveedor ' + proveedorIdActual + ')';
+                cargarSolicitudes();
+                cargarNotificaciones();
+                cargarMisCategoriasResumen();
+            }
+        }
+
+        // ============================================================
+        // NOTIFICACIONES
+        // ============================================================
+        function toggleNotificaciones() {
+            document.getElementById('panelNotificaciones').classList.toggle('hidden');
+        }
+
+        async function cargarNotificaciones() {
+            try {
+                const contResp = await fetch(`/api/usuarios/${proveedorIdActual}/notificaciones/contar`);
+                const contData = await contResp.json();
+                const badge = document.getElementById('badgeNotif');
+                if (contData.no_leidas > 0) {
+                    badge.textContent = contData.no_leidas;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+
+                const resp = await fetch(`/api/usuarios/${proveedorIdActual}/notificaciones-detalladas`);
+                const data = await resp.json();
+                const contenedor = document.getElementById('listaNotificaciones');
+
+                if (data.notificaciones.length === 0) {
+                    contenedor.innerHTML = '<p class="text-gray-500 text-sm">No tienes notificaciones.</p>';
+                    return;
+                }
+
+                contenedor.innerHTML = '';
+                data.notificaciones.forEach(notif => {
+                    const sol = notif.solicitud || {};
+                    const div = document.createElement('div');
+                    div.className = `p-3 rounded-lg border ${notif.leida ? 'bg-white border-gray-200' : 'bg-blue-50 border-blue-300'}`;
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                ${!notif.leida ? '<span class="inline-block bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full mb-1">NUEVA</span>' : ''}
+                                <p class="font-medium text-gray-800">${sol.titulo || 'Solicitud'}</p>
+                                <p class="text-sm text-gray-600 mt-1">${sol.descripcion || 'Sin descripción'}</p>
+                                <p class="text-xs text-gray-500 mt-1">📍 ${sol.ubicacion || 'Sin ubicación'}</p>
+                            </div>
+                            ${!notif.leida ? `<button onclick="marcarLeida(${notif.id}, event)" class="text-xs text-blue-600 hover:underline ml-2">Marcar leída</button>` : '<span class="text-xs text-gray-400">✓ Leída</span>'}
+                        </div>
+                        <button onclick="abrirModal(${sol.id}, '${(sol.titulo || '').replace(/'/g, "\\\\'")}')" 
+                                class="mt-2 w-full bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-1.5 rounded-lg">
+                            Tengo lo que buscas
+                        </button>
+                    `;
+                    contenedor.appendChild(div);
+                });
+            } catch (e) {
+                console.error('Error notificaciones:', e);
+            }
+        }
+
+        async function marcarLeida(notifId, event) {
+            event.stopPropagation();
+            await fetch(`/api/notificaciones/${notifId}/leer`, { method: 'POST' });
+            cargarNotificaciones();
+        }
+
+        async function marcarTodasLeidas() {
+            await fetch(`/api/usuarios/${proveedorIdActual}/notificaciones/leer-todas`, { method: 'POST' });
+            cargarNotificaciones();
+        }
+
+        // ============================================================
+        // MIS CATEGORIAS
+        // ============================================================
+        async function cargarMisCategoriasResumen() {
+            try {
+                const resp = await fetch(`/api/proveedores/${proveedorIdActual}/categorias`);
+                const data = await resp.json();
+                misCategoriasIds = new Set(data.categorias.map(c => c.id));
+                const cont = document.getElementById('misCategoriasResumen');
+                if (data.categorias.length === 0) {
+                    cont.innerHTML = '<em class="text-red-600">ninguna (¡haz clic en ⚙️ Mis Categorías!)</em>';
+                } else {
+                    cont.textContent = data.categorias.map(c => c.nombre).join(', ');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function abrirMisCategorias() {
+            document.getElementById('modalCategorias').classList.remove('hidden');
+            document.getElementById('mensajeCategorias').classList.add('hidden');
+
+            // Cargar arbol
+            const resp = await fetch('/api/categorias/arbol');
+            const data = await resp.json();
+            arbolCategoriasData = data.arbol;
+
+            // Cargar categorias del proveedor
+            const respP = await fetch(`/api/proveedores/${proveedorIdActual}/categorias`);
+            const dataP = await respP.json();
+            misCategoriasIds = new Set(dataP.categorias.map(c => c.id));
+            categoriasSeleccionadasTemp = new Set(misCategoriasIds);
+
+            renderArbolConCheckboxes();
+        }
+
+        function renderArbolConCheckboxes() {
+            const contenedor = document.getElementById('arbolCategoriasCheck');
+
+            if (arbolCategoriasData.length === 0) {
+                contenedor.innerHTML = '<p class="text-gray-500">No hay categorías creadas aún.</p>';
+                return;
+            }
+
+            contenedor.innerHTML = '';
+
+            function renderNodo(cat, nivel) {
+                const div = document.createElement('div');
+                div.className = 'mb-1';
+                const indent = nivel * 24;
+                const marcada = categoriasSeleccionadasTemp.has(cat.id);
+
+                div.innerHTML = `
+                    <label class="flex items-center gap-2 cursor-pointer py-1 px-2 rounded hover:bg-blue-50" style="margin-left: ${indent}px">
+                        <input type="checkbox" 
+                               ${marcada ? 'checked' : ''}
+                               onchange="toggleCategoria(${cat.id}, this.checked)"
+                               class="w-4 h-4 text-blue-600">
+                        <span class="font-medium text-gray-800">${cat.nombre}</span>
+                        ${cat.tipo ? `<span class="text-xs bg-gray-200 px-2 py-0.5 rounded">${cat.tipo}</span>` : ''}
+                    </label>
+                `;
+                const wrapper = document.createElement('div');
+                wrapper.appendChild(div);
+                if (cat.hijos && cat.hijos.length > 0) {
+                    cat.hijos.forEach(h => wrapper.appendChild(renderNodo(h, nivel + 1)));
+                }
+                return wrapper;
+            }
+
+            arbolCategoriasData.forEach(cat => contenedor.appendChild(renderNodo(cat, 0)));
+        }
+
+        function toggleCategoria(catId, checked) {
+            if (checked) {
+                categoriasSeleccionadasTemp.add(catId);
+            } else {
+                categoriasSeleccionadasTemp.delete(catId);
+            }
+        }
+
+        async function guardarMisCategorias() {
+            const mensaje = document.getElementById('mensajeCategorias');
+            mensaje.className = 'mt-3 p-3 bg-blue-100 text-blue-800 rounded-lg text-sm';
+            mensaje.textContent = '⏳ Guardando...';
+            mensaje.classList.remove('hidden');
+
+            try {
+                // Agregar las nuevas
+                for (const catId of categoriasSeleccionadasTemp) {
+                    if (!misCategoriasIds.has(catId)) {
+                        const fd = new FormData();
+                        fd.append('categoria_id', catId);
+                        await fetch(`/api/proveedores/${proveedorIdActual}/categorias`, {
+                            method: 'POST', body: fd
+                        });
+                    }
+                }
+                // Quitar las desmarcadas
+                for (const catId of misCategoriasIds) {
+                    if (!categoriasSeleccionadasTemp.has(catId)) {
+                        await fetch(`/api/proveedores/${proveedorIdActual}/categorias/${catId}`, {
+                            method: 'DELETE'
+                        });
+                    }
+                }
+
+                mensaje.className = 'mt-3 p-3 bg-green-100 text-green-800 rounded-lg text-sm';
+                mensaje.textContent = '✅ Categorías actualizadas';
+                await cargarMisCategoriasResumen();
+                setTimeout(() => cerrarModalCategorias(), 1000);
+            } catch (e) {
+                mensaje.className = 'mt-3 p-3 bg-red-100 text-red-800 rounded-lg text-sm';
+                mensaje.textContent = '❌ Error: ' + e.message;
+            }
+        }
+
+        function cerrarModalCategorias() {
+            document.getElementById('modalCategorias').classList.add('hidden');
+        }
+
+        // ============================================================
+        // SOLICITUDES
+        // ============================================================
+        async function cargarSolicitudes() {
+            try {
+                const resp = await fetch('/api/solicitudes');
+                const data = await resp.json();
+                const contenedor = document.getElementById('listaSolicitudes');
+
+                const activas = data.solicitudes.filter(s => s.estado !== 'cancelada' && s.estado !== 'finalizada');
+
+                if (activas.length === 0) {
+                    contenedor.innerHTML = '<p class="text-gray-500">No hay solicitudes disponibles.</p>';
+                    return;
+                }
+
+                contenedor.innerHTML = '';
+                activas.forEach(sol => {
+                    const div = document.createElement('div');
+                    div.className = 'bg-white rounded-lg shadow p-5 hover:shadow-lg transition';
+                    let estadoBadge = 'bg-green-100 text-green-700';
+                    if (sol.estado === 'asignada') estadoBadge = 'bg-blue-100 text-blue-700';
+                    if (sol.estado === 'con_ofertas') estadoBadge = 'bg-yellow-100 text-yellow-700';
+
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start mb-3">
+                            <h4 class="text-lg font-bold text-gray-800">${sol.titulo}</h4>
+                            <span class="${estadoBadge} text-xs px-3 py-1 rounded-full font-medium">${sol.estado}</span>
+                        </div>
+                        <p class="text-gray-600 mb-3">${sol.descripcion || 'Sin descripción'}</p>
+                        <div class="flex justify-between items-center text-sm text-gray-500">
+                            <span>📍 ${sol.ubicacion || 'Sin ubicación'}</span>
+                            <span>📅 ${sol.fecha_creacion?.slice(0, 10) || ''}</span>
+                        </div>
+                        <button onclick="abrirModal(${sol.id}, '${sol.titulo.replace(/'/g, "\\\\'")}')"
+                                class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg">
+                            Tengo lo que buscas
+                        </button>
+                    `;
+                    contenedor.appendChild(div);
+                });
+            } catch (e) {
+                console.error('Error cargando solicitudes:', e);
+            }
+        }
+
+        function abrirModal(solicitudId, titulo) {
+            document.getElementById('solicitud_id_modal').value = solicitudId;
+            document.getElementById('proveedor_id_modal').value = proveedorIdActual;
+            document.getElementById('tituloSolicitud').textContent = 'Para: ' + titulo;
+            document.getElementById('modalOferta').classList.remove('hidden');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalOferta').classList.add('hidden');
+            document.getElementById('formOferta').reset();
+        }
+
+        document.getElementById('formOferta').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            try {
+                const resp = await fetch('/api/ofertas', { method: 'POST', body: formData });
+                const data = await resp.json();
+                if (data.ok) {
+                    alert('✅ Oferta enviada');
+                    cerrarModal();
+                } else {
+                    alert('❌ Error: ' + (data.error || ''));
+                }
+            } catch (err) {
+                alert('❌ Error de conexión');
+            }
+        });
+
+        // Cargar al inicio
+        cargarSolicitudes();
+        cargarNotificaciones();
+        cargarMisCategoriasResumen();
+
+        setInterval(cargarNotificaciones, 30000);
+    </script>
+</body>
+</html>
