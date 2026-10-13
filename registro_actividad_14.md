@@ -1,1 +1,0 @@
-El archivo `index.html` ha sido reescrito con el contenido solicitado. Ahora incluye el CDN de Tailwind CSS, la estructura de tarjetas para las solicitudes, el formulario de creación y el script JS que se conecta a `/solicitudes`. El navegador debería mostrar el título en texto plano y el formulario de creación de solicitudes.
