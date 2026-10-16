@@ -49,7 +49,6 @@ def listar_categorias():
 def listar_categorias_arbol():
     """Devuelve las categorias organizadas en estructura de arbol."""
     todas = listar_categorias()
-    # Crear un diccionario por id
     por_id = {c["id"]: {**c, "hijos": []} for c in todas}
     raices = []
     for c in por_id.values():
@@ -65,7 +64,6 @@ def obtener_descendientes(categoria_id: int):
     """Devuelve TODAS las categorias descendientes (incluyendo la propia)."""
     todas = listar_categorias()
     resultado = [categoria_id]
-    # Buscar hijos recursivamente
     cambio = True
     while cambio:
         cambio = False
@@ -121,17 +119,14 @@ def crear_solicitud(cliente_id: int, categoria_id: int, titulo: str,
     if resultado.data:
         solicitud_id = resultado.data[0]["id"]
         try:
-            # Obtener ancestros de la categoria
             categorias_relevantes = obtener_ancestros(categoria_id)
 
-            # Buscar proveedores suscritos a cualquier ancestro
             proveedores_ids = set()
             for cat_id in categorias_relevantes:
                 resp = supabase.table("proveedor_categorias").select("proveedor_id").eq("categoria_id", cat_id).execute()
                 for p in resp.data:
                     proveedores_ids.add(p["proveedor_id"])
 
-            # Crear notificaciones
             for proveedor_id in proveedores_ids:
                 try:
                     supabase.table("notificaciones").insert({
@@ -271,7 +266,6 @@ def listar_notificaciones_detalladas(usuario_id: int, solo_no_leidas: bool = Fal
 # ============================================================
 
 def listar_categorias_de_proveedor(proveedor_id: int):
-    """Devuelve las categorias suscritas por un proveedor."""
     respuesta = (supabase.table("proveedor_categorias")
                  .select("categoria_id, categorias:categoria_id(id, nombre, padre_id)")
                  .eq("proveedor_id", proveedor_id).execute())
@@ -296,18 +290,16 @@ def quitar_categoria_de_proveedor(proveedor_id: int, categoria_id: int):
         .eq("categoria_id", categoria_id)\
         .execute()
     return {"ok": True}
+
+
 # ============================================================
 # AUTENTICACION (Supabase Auth)
 # ============================================================
 
 def registrar_usuario_auth(email: str, password: str, nombre: str, rol: str,
                             telefono: str = None, whatsapp: str = None):
-    """
-    Registra un usuario en Supabase Auth Y crea el registro en la tabla usuarios.
-    Devuelve los datos del usuario creado (sin password).
-    """
+    """Registra un usuario en Supabase Auth Y crea el registro en la tabla usuarios."""
     try:
-        # 1. Crear el usuario en Supabase Auth
         auth_resp = supabase.auth.sign_up({
             "email": email,
             "password": password,
@@ -317,7 +309,6 @@ def registrar_usuario_auth(email: str, password: str, nombre: str, rol: str,
 
         auth_id = auth_resp.user.id
 
-        # 2. Crear el registro en la tabla usuarios
         data = {
             "auth_id": auth_id,
             "email": email,
@@ -329,7 +320,6 @@ def registrar_usuario_auth(email: str, password: str, nombre: str, rol: str,
         }
         resp = supabase.table("usuarios").insert(data).execute()
 
-        # 3. Cerrar la sesion temporal que creo sign_up
         supabase.auth.sign_out()
 
         return {
@@ -343,9 +333,7 @@ def registrar_usuario_auth(email: str, password: str, nombre: str, rol: str,
 
 
 def iniciar_sesion(email: str, password: str):
-    """
-    Inicia sesion con email y password. Devuelve el access_token y datos del usuario.
-    """
+    """Inicia sesion con email y password. Devuelve el access_token y datos del usuario."""
     try:
         auth_resp = supabase.auth.sign_in_with_password({
             "email": email,
@@ -357,14 +345,12 @@ def iniciar_sesion(email: str, password: str):
         access_token = auth_resp.session.access_token
         auth_id = auth_resp.user.id
 
-        # Buscar el usuario en la tabla
         resp = supabase.table("usuarios").select("*").eq("auth_id", auth_id).execute()
         if not resp.data:
             return {"ok": False, "error": "Usuario no encontrado en la base de datos"}
 
         usuario = resp.data[0]
 
-        # Cerrar la sesion global del cliente (usaremos el token explicitamente)
         supabase.auth.sign_out()
 
         return {
@@ -379,18 +365,22 @@ def iniciar_sesion(email: str, password: str):
 def obtener_usuario_por_token(access_token: str):
     """
     Dado un access_token (JWT), devuelve el usuario de la tabla usuarios.
-    Se usa en cada peticion para saber quien esta logueado.
+    Decodifica el JWT directamente para obtener el auth_id (sub).
     """
     try:
-        auth_resp = supabase.auth.get_user(access_token)
-        if not auth_resp.user:
+        import jwt
+        decoded = jwt.decode(access_token, options={"verify_signature": False})
+        auth_id = decoded.get("sub")
+        if not auth_id:
+            print("Token sin 'sub'")
             return None
-        auth_id = auth_resp.user.id
         resp = supabase.table("usuarios").select("*").eq("auth_id", auth_id).execute()
         if resp.data:
             return resp.data[0]
+        print(f"No se encontro usuario con auth_id={auth_id}")
         return None
-    except Exception:
+    except Exception as e:
+        print(f"Error decodificando token: {e}")
         return None
 
 
