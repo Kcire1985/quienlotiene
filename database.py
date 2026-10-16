@@ -296,3 +296,117 @@ def quitar_categoria_de_proveedor(proveedor_id: int, categoria_id: int):
         .eq("categoria_id", categoria_id)\
         .execute()
     return {"ok": True}
+# ============================================================
+# AUTENTICACION (Supabase Auth)
+# ============================================================
+
+def registrar_usuario_auth(email: str, password: str, nombre: str, rol: str,
+                            telefono: str = None, whatsapp: str = None):
+    """
+    Registra un usuario en Supabase Auth Y crea el registro en la tabla usuarios.
+    Devuelve los datos del usuario creado (sin password).
+    """
+    try:
+        # 1. Crear el usuario en Supabase Auth
+        auth_resp = supabase.auth.sign_up({
+            "email": email,
+            "password": password,
+        })
+        if not auth_resp.user:
+            raise ValueError("No se pudo crear el usuario en Auth")
+
+        auth_id = auth_resp.user.id
+
+        # 2. Crear el registro en la tabla usuarios
+        data = {
+            "auth_id": auth_id,
+            "email": email,
+            "nombre": nombre,
+            "rol": rol,
+            "telefono": telefono,
+            "whatsapp": whatsapp,
+            "email_verificado": False,
+        }
+        resp = supabase.table("usuarios").insert(data).execute()
+
+        # 3. Cerrar la sesion temporal que creo sign_up
+        supabase.auth.sign_out()
+
+        return {
+            "ok": True,
+            "auth_id": auth_id,
+            "usuario": resp.data[0] if resp.data else None,
+            "mensaje": "Revisa tu correo para confirmar la cuenta",
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def iniciar_sesion(email: str, password: str):
+    """
+    Inicia sesion con email y password. Devuelve el access_token y datos del usuario.
+    """
+    try:
+        auth_resp = supabase.auth.sign_in_with_password({
+            "email": email,
+            "password": password,
+        })
+        if not auth_resp.session:
+            return {"ok": False, "error": "Credenciales invalidas"}
+
+        access_token = auth_resp.session.access_token
+        auth_id = auth_resp.user.id
+
+        # Buscar el usuario en la tabla
+        resp = supabase.table("usuarios").select("*").eq("auth_id", auth_id).execute()
+        if not resp.data:
+            return {"ok": False, "error": "Usuario no encontrado en la base de datos"}
+
+        usuario = resp.data[0]
+
+        # Cerrar la sesion global del cliente (usaremos el token explicitamente)
+        supabase.auth.sign_out()
+
+        return {
+            "ok": True,
+            "access_token": access_token,
+            "usuario": usuario,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def obtener_usuario_por_token(access_token: str):
+    """
+    Dado un access_token (JWT), devuelve el usuario de la tabla usuarios.
+    Se usa en cada peticion para saber quien esta logueado.
+    """
+    try:
+        auth_resp = supabase.auth.get_user(access_token)
+        if not auth_resp.user:
+            return None
+        auth_id = auth_resp.user.id
+        resp = supabase.table("usuarios").select("*").eq("auth_id", auth_id).execute()
+        if resp.data:
+            return resp.data[0]
+        return None
+    except Exception:
+        return None
+
+
+def cerrar_sesion_usuario():
+    """Cierra la sesion global del cliente Supabase (limpieza)."""
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+def verificar_email_usuario(auth_id: str):
+    """Marca el email como verificado en la tabla usuarios."""
+    try:
+        supabase.table("usuarios").update({"email_verificado": True}).eq("auth_id", auth_id).execute()
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

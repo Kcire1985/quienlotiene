@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Form, HTTPException
+from fastapi import FastAPI, Request, Form, HTTPException, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
@@ -26,6 +26,11 @@ async def pagina_registro(request: Request):
     return templates.TemplateResponse(request=request, name="registro.html")
 
 
+@app.get("/login", response_class=HTMLResponse)
+async def pagina_login(request: Request):
+    return templates.TemplateResponse(request=request, name="login.html")
+
+
 @app.get("/proveedor", response_class=HTMLResponse)
 async def pagina_proveedor(request: Request):
     return templates.TemplateResponse(request=request, name="proveedor.html")
@@ -42,13 +47,74 @@ async def pagina_admin_categorias(request: Request):
 
 
 # ============================================================
-# ENDPOINTS API - USUARIOS
+# API - AUTENTICACION
+# ============================================================
+
+@app.post("/api/auth/registro")
+async def api_registro(
+    email: str = Form(...),
+    password: str = Form(...),
+    nombre: str = Form(...),
+    rol: str = Form(...),
+    telefono: Optional[str] = Form(None),
+    whatsapp: Optional[str] = Form(None),
+):
+    """Registra un usuario con email/password. Envia email de verificacion."""
+    resultado = db.registrar_usuario_auth(email, password, nombre, rol, telefono, whatsapp)
+    return resultado
+
+
+@app.post("/api/auth/login")
+async def api_login(
+    response: Response,
+    email: str = Form(...),
+    password: str = Form(...),
+):
+    """Inicia sesion. Guarda el token en una cookie httpOnly."""
+    resultado = db.iniciar_sesion(email, password)
+    if resultado.get("ok"):
+        response.set_cookie(
+            key="access_token",
+            value=resultado["access_token"],
+            httponly=True,
+            max_age=60 * 60 * 24 * 7,  # 7 dias
+            samesite="lax",
+        )
+        return {"ok": True, "usuario": resultado["usuario"]}
+    return JSONResponse(status_code=401, content=resultado)
+
+
+@app.post("/api/auth/logout")
+async def api_logout(response: Response):
+    """Cierra la sesion eliminando la cookie."""
+    response.delete_cookie("access_token")
+    db.cerrar_sesion_usuario()
+    return {"ok": True}
+
+
+@app.get("/api/auth/yo")
+async def api_yo(request: Request):
+    """Devuelve el usuario logueado actualmente."""
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    usuario = db.obtener_usuario_por_token(token)
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Token invalido")
+    return {"usuario": usuario}
+
+
+# ============================================================
+# API - USUARIOS (legacy, mantenemos por compatibilidad)
 # ============================================================
 
 @app.post("/api/usuarios")
 async def api_crear_usuario(
-    email: str = Form(...), nombre: str = Form(...), rol: str = Form(...),
-    telefono: Optional[str] = Form(None), whatsapp: Optional[str] = Form(None),
+    email: str = Form(...),
+    nombre: str = Form(...),
+    rol: str = Form(...),
+    telefono: Optional[str] = Form(None),
+    whatsapp: Optional[str] = Form(None),
 ):
     try:
         resultado = db.crear_usuario(email, nombre, rol, telefono, whatsapp)
@@ -66,7 +132,7 @@ async def api_obtener_usuario(usuario_id: int):
 
 
 # ============================================================
-# ENDPOINTS API - CATEGORIAS
+# API - CATEGORIAS
 # ============================================================
 
 @app.get("/api/categorias")
@@ -76,7 +142,6 @@ async def api_listar_categorias():
 
 @app.get("/api/categorias/arbol")
 async def api_categorias_arbol():
-    """Devuelve las categorias en estructura de arbol."""
     return {"arbol": db.listar_categorias_arbol()}
 
 
@@ -103,14 +168,17 @@ async def api_eliminar_categoria(categoria_id: int):
 
 
 # ============================================================
-# ENDPOINTS API - SOLICITUDES
+# API - SOLICITUDES
 # ============================================================
 
 @app.post("/api/solicitudes")
 async def api_crear_solicitud(
-    cliente_id: int = Form(...), categoria_id: int = Form(...),
-    titulo: str = Form(...), descripcion: Optional[str] = Form(None),
-    ubicacion: Optional[str] = Form(None), radio_busqueda: Optional[int] = Form(None),
+    cliente_id: int = Form(...),
+    categoria_id: int = Form(...),
+    titulo: str = Form(...),
+    descripcion: Optional[str] = Form(None),
+    ubicacion: Optional[str] = Form(None),
+    radio_busqueda: Optional[int] = Form(None),
 ):
     try:
         resultado = db.crear_solicitud(cliente_id, categoria_id, titulo, descripcion, ubicacion, radio_busqueda)
@@ -154,13 +222,15 @@ async def api_cerrar_solicitud(solicitud_id: int):
 
 
 # ============================================================
-# ENDPOINTS API - OFERTAS
+# API - OFERTAS
 # ============================================================
 
 @app.post("/api/ofertas")
 async def api_crear_oferta(
-    solicitud_id: int = Form(...), proveedor_id: int = Form(...),
-    mensaje: str = Form(...), precio: Optional[float] = Form(None),
+    solicitud_id: int = Form(...),
+    proveedor_id: int = Form(...),
+    mensaje: str = Form(...),
+    precio: Optional[float] = Form(None),
 ):
     try:
         resultado = db.crear_oferta(solicitud_id, proveedor_id, mensaje, precio)
@@ -196,7 +266,7 @@ async def api_cancelar_aceptacion(oferta_id: int):
 
 
 # ============================================================
-# ENDPOINTS API - NOTIFICACIONES
+# API - NOTIFICACIONES
 # ============================================================
 
 @app.get("/api/usuarios/{usuario_id}/notificaciones")
@@ -231,7 +301,7 @@ async def api_marcar_todas_leidas(usuario_id: int):
 
 
 # ============================================================
-# ENDPOINTS API - PROVEEDOR CATEGORIAS
+# API - PROVEEDOR CATEGORIAS
 # ============================================================
 
 @app.get("/api/proveedores/{proveedor_id}/categorias")

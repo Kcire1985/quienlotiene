@@ -6,9 +6,12 @@ from crewai_tools import (
     DirectoryReadTool,
     FileWriterTool,
 )
+from tools import herramientas_otc
 
+# Cargar variables del entorno (.env)
 load_dotenv()
 
+# Configurar OpenRouter con modelo estable
 llm = LLM(
     model="openrouter/meta-llama/llama-3.3-70b-instruct",
     base_url="https://openrouter.ai/api/v1",
@@ -18,44 +21,73 @@ llm = LLM(
     timeout=90,
 )
 
+# ============================================================
+# HERRAMIENTAS DEL AGENTE
+# ============================================================
+
+# Herramientas de archivos
 directorio_tool = DirectoryReadTool(directory='C:/QuienLoTiene')
 archivo_tool = FileReadTool(base_dir='C:/QuienLoTiene')
 escritor_tool = FileWriterTool()
 
+# Lista completa de herramientas: archivos + superpoderes
+todas_las_herramientas = [
+    directorio_tool,
+    archivo_tool,
+    escritor_tool,
+    *herramientas_otc,
+]
+
+# ============================================================
+# AGENTE CTO
+# ============================================================
+
 cto_agent = Agent(
-    role="CTO y Arquitecto de Software",
+    role="CTO y Arquitecto de Software de QuienLoTiene",
     goal=(
-        "Disenar, escribir y mantener el codigo real del proyecto "
-        "QuienLoTiene. Usar SIEMPRE las herramientas para leer archivos "
-        "antes de escribir codigo nuevo. Nunca inventar contenido de "
-        "archivos que no ha leido."
+        "Supervisar el desarrollo de QuienLoTiene, analizar la base de datos, "
+        "investigar en internet cuando sea necesario, y mantener codigo de calidad. "
+        "Usa SIEMPRE las herramientas disponibles antes de responder."
     ),
     backstory=(
         "Eres un CTO senior especializado en marketplaces inversos (RFQ), "
         "FastAPI y Supabase/PostgreSQL. "
-        "Trabajas escribiendo codigo real en archivos reales. "
-        "Reglas estrictas: "
-        "1) Antes de escribir codigo, LEE los archivos existentes. "
-        "2) Nunca sobrescribas el archivo .env. "
-        "3) Nunca sobrescribas crew.py ni este mismo prompt. "
-        "4) Documenta en el codigo lo que haces. "
-        "5) Cuando escribas un archivo, di exactamente cual y donde. "
-        "6) Nunca inventes tablas ni archivos que no hayas leido."
+        "Trabajas con datos REALES, no inventas. "
+        "\n\nHERRAMIENTAS DISPONIBLES:"
+        "\n- DirectoryReadTool: listar archivos del proyecto"
+        "\n- FileReadTool: leer contenido de archivos"
+        "\n- FileWriterTool: escribir/actualizar archivos"
+        "\n- listar_tablas: ver que tablas existen en Supabase"
+        "\n- consultar_tabla: leer filas de una tabla (SOLO LECTURA)"
+        "\n- contar_filas: contar registros de una tabla"
+        "\n- buscar_web: buscar informacion en internet (gratis)"
+        "\n\nREGLAS ESTRICTAS:"
+        "\n1) Antes de escribir codigo, LEE los archivos existentes con FileReadTool"
+        "\n2) Antes de hablar de datos, CONSULTA las tablas con consultar_tabla"
+        "\n3) Nunca sobrescribas el archivo .env ni crew.py"
+        "\n4) Nunca modifiques datos de Supabase (solo lectura por ahora)"
+        "\n5) Cuando escribas un archivo, di exactamente cual y donde"
+        "\n6) Nunca inventes datos ni tablas que no hayas verificado"
+        "\n7) Si no sabes algo, admítelo o buscalo en la web"
     ),
     llm=llm,
-    tools=[directorio_tool, archivo_tool, escritor_tool],
+    tools=todas_las_herramientas,
     verbose=True,
     allow_delegation=False,
 )
+
+# ============================================================
+# EJECUCION PRINCIPAL
+# ============================================================
 
 if __name__ == "__main__":
     print("\n=================================================")
     print("  Sistema de Agentes QuienLoTiene Activo")
     print("=================================================")
-    print("  Herramientas cargadas:")
-    print("  - DirectoryReadTool: listar archivos")
-    print("  - FileReadTool: leer archivos")
-    print("  - FileWriterTool: escribir archivos")
+    print(f"  Herramientas cargadas: {len(todas_las_herramientas)}")
+    print("  - 3 de archivos (leer/escribir/listar)")
+    print("  - 3 de Supabase (solo lectura)")
+    print("  - 1 de busqueda web")
     print("=================================================")
 
     while True:
@@ -67,9 +99,9 @@ if __name__ == "__main__":
         task = Task(
             description=user_input,
             expected_output=(
-                "Respuesta ejecutiva con acciones REALES sobre el proyecto. "
-                "Si escribiste archivos, indica exactamente cuales. "
-                "Si solo informaste, di que no se modifico nada."
+                "Respuesta ejecutiva basada en informacion REAL. "
+                "Si usaste herramientas, indica cuales. "
+                "Si no pudiste hacer algo, dilo claramente."
             ),
             agent=cto_agent,
         )
