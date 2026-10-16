@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuienLoTiene - Panel Proveedor</title>
+    <title>Panel Proveedor - QuienLoTiene</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -13,9 +13,8 @@
             <h1 class="text-2xl font-bold">QuienLoTiene</h1>
             <nav class="flex items-center gap-4 flex-wrap">
                 <a href="/" class="hover:underline">Inicio</a>
-                <a href="/registro" class="hover:underline">Registrarse</a>
-                <a href="/proveedor" class="underline font-bold">Soy Proveedor</a>
                 <a href="/mis-solicitudes" class="hover:underline">Mis Solicitudes</a>
+                <a href="/proveedor" class="underline font-bold">Soy Proveedor</a>
 
                 <button onclick="abrirMisCategorias()" class="bg-white text-blue-600 hover:bg-blue-100 px-3 py-1 rounded-lg text-sm font-bold">
                     ⚙️ Mis Categorías
@@ -25,11 +24,15 @@
                     <span class="text-2xl">🔔</span>
                     <span id="badgeNotif" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">0</span>
                 </button>
+
+                <div id="zonaUsuario" class="flex items-center gap-2 text-sm">
+                    <span class="opacity-75">Cargando...</span>
+                </div>
             </nav>
         </div>
     </header>
 
-    <!-- PANEL DE NOTIFICACIONES -->
+    <!-- PANEL NOTIFICACIONES -->
     <div id="panelNotificaciones" class="hidden bg-white shadow-lg border-b-2 border-blue-200">
         <div class="container mx-auto px-4 py-4">
             <div class="flex justify-between items-center mb-3">
@@ -47,25 +50,7 @@
     <section class="bg-blue-700 text-white py-8">
         <div class="container mx-auto px-4">
             <h2 class="text-3xl font-bold mb-2">Panel del Proveedor</h2>
-            <p class="opacity-90">Aquí verás las solicitudes de los clientes y podrás ofertar</p>
-        </div>
-    </section>
-
-    <!-- SELECTOR DE PROVEEDOR -->
-    <section class="container mx-auto px-4 py-6">
-        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4 flex items-center justify-between">
-            <div>
-                <p class="text-sm text-yellow-800">Actuando como proveedor:</p>
-                <p class="font-bold text-yellow-900">
-                    ID: <span id="miId">2</span> — <span id="miNombre">Ferretería El Tornillo</span>
-                </p>
-                <p class="text-xs text-yellow-700 mt-1">
-                    Categorías: <span id="misCategoriasResumen">cargando...</span>
-                </p>
-            </div>
-            <button onclick="cambiarProveedor()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                Cambiar
-            </button>
+            <p class="opacity-90" id="subtitulo">Cargando...</p>
         </div>
     </section>
 
@@ -87,7 +72,7 @@
         </div>
     </footer>
 
-    <!-- MODAL DE OFERTA -->
+    <!-- MODAL OFERTA -->
     <div id="modalOferta" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Enviar oferta</h3>
@@ -138,33 +123,56 @@
     </div>
 
     <script>
-        let proveedorIdActual = 2;
+        let usuarioActual = null;
         let arbolCategoriasData = [];
         let misCategoriasIds = new Set();
         let categoriasSeleccionadasTemp = new Set();
 
-        function cambiarProveedor() {
-            const nuevo = prompt("Ingresa el ID del proveedor:", proveedorIdActual);
-            if (nuevo && !isNaN(nuevo)) {
-                proveedorIdActual = parseInt(nuevo);
-                document.getElementById('miId').textContent = proveedorIdActual;
-                document.getElementById('miNombre').textContent = '(proveedor ' + proveedorIdActual + ')';
-                cargarSolicitudes();
-                cargarNotificaciones();
-                cargarMisCategoriasResumen();
+        // ============================================================
+        // Verificar sesion
+        // ============================================================
+        async function verificarSesion() {
+            try {
+                const resp = await fetch('/api/auth/yo');
+                if (!resp.ok) {
+                    window.location.href = '/login';
+                    return false;
+                }
+                const data = await resp.json();
+                usuarioActual = data.usuario;
+
+                document.getElementById('zonaUsuario').innerHTML = `
+                    <span class="opacity-75">Hola, ${usuarioActual.nombre.split(' ')[0]}</span>
+                    <button onclick="cerrarSesion()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-xs">
+                        Salir
+                    </button>
+                `;
+                document.getElementById('subtitulo').textContent =
+                    `Actuando como ${usuarioActual.nombre} (${usuarioActual.email})`;
+                return true;
+            } catch (e) {
+                console.error(e);
+                window.location.href = '/login';
+                return false;
             }
         }
 
+        async function cerrarSesion() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+
         // ============================================================
-        // NOTIFICACIONES
+        // Notificaciones
         // ============================================================
         function toggleNotificaciones() {
             document.getElementById('panelNotificaciones').classList.toggle('hidden');
         }
 
         async function cargarNotificaciones() {
+            if (!usuarioActual) return;
             try {
-                const contResp = await fetch(`/api/usuarios/${proveedorIdActual}/notificaciones/contar`);
+                const contResp = await fetch(`/api/usuarios/${usuarioActual.id}/notificaciones/contar`);
                 const contData = await contResp.json();
                 const badge = document.getElementById('badgeNotif');
                 if (contData.no_leidas > 0) {
@@ -174,7 +182,7 @@
                     badge.classList.add('hidden');
                 }
 
-                const resp = await fetch(`/api/usuarios/${proveedorIdActual}/notificaciones-detalladas`);
+                const resp = await fetch(`/api/usuarios/${usuarioActual.id}/notificaciones-detalladas`);
                 const data = await resp.json();
                 const contenedor = document.getElementById('listaNotificaciones');
 
@@ -217,40 +225,22 @@
         }
 
         async function marcarTodasLeidas() {
-            await fetch(`/api/usuarios/${proveedorIdActual}/notificaciones/leer-todas`, { method: 'POST' });
+            await fetch(`/api/usuarios/${usuarioActual.id}/notificaciones/leer-todas`, { method: 'POST' });
             cargarNotificaciones();
         }
 
         // ============================================================
-        // MIS CATEGORIAS
+        // Mis Categorias
         // ============================================================
-        async function cargarMisCategoriasResumen() {
-            try {
-                const resp = await fetch(`/api/proveedores/${proveedorIdActual}/categorias`);
-                const data = await resp.json();
-                misCategoriasIds = new Set(data.categorias.map(c => c.id));
-                const cont = document.getElementById('misCategoriasResumen');
-                if (data.categorias.length === 0) {
-                    cont.innerHTML = '<em class="text-red-600">ninguna (¡haz clic en ⚙️ Mis Categorías!)</em>';
-                } else {
-                    cont.textContent = data.categorias.map(c => c.nombre).join(', ');
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
         async function abrirMisCategorias() {
             document.getElementById('modalCategorias').classList.remove('hidden');
             document.getElementById('mensajeCategorias').classList.add('hidden');
 
-            // Cargar arbol
             const resp = await fetch('/api/categorias/arbol');
             const data = await resp.json();
             arbolCategoriasData = data.arbol;
 
-            // Cargar categorias del proveedor
-            const respP = await fetch(`/api/proveedores/${proveedorIdActual}/categorias`);
+            const respP = await fetch(`/api/proveedores/${usuarioActual.id}/categorias`);
             const dataP = await respP.json();
             misCategoriasIds = new Set(dataP.categorias.map(c => c.id));
             categoriasSeleccionadasTemp = new Set(misCategoriasIds);
@@ -296,11 +286,8 @@
         }
 
         function toggleCategoria(catId, checked) {
-            if (checked) {
-                categoriasSeleccionadasTemp.add(catId);
-            } else {
-                categoriasSeleccionadasTemp.delete(catId);
-            }
+            if (checked) categoriasSeleccionadasTemp.add(catId);
+            else categoriasSeleccionadasTemp.delete(catId);
         }
 
         async function guardarMisCategorias() {
@@ -310,28 +297,20 @@
             mensaje.classList.remove('hidden');
 
             try {
-                // Agregar las nuevas
                 for (const catId of categoriasSeleccionadasTemp) {
                     if (!misCategoriasIds.has(catId)) {
                         const fd = new FormData();
                         fd.append('categoria_id', catId);
-                        await fetch(`/api/proveedores/${proveedorIdActual}/categorias`, {
-                            method: 'POST', body: fd
-                        });
+                        await fetch(`/api/proveedores/${usuarioActual.id}/categorias`, { method: 'POST', body: fd });
                     }
                 }
-                // Quitar las desmarcadas
                 for (const catId of misCategoriasIds) {
                     if (!categoriasSeleccionadasTemp.has(catId)) {
-                        await fetch(`/api/proveedores/${proveedorIdActual}/categorias/${catId}`, {
-                            method: 'DELETE'
-                        });
+                        await fetch(`/api/proveedores/${usuarioActual.id}/categorias/${catId}`, { method: 'DELETE' });
                     }
                 }
-
                 mensaje.className = 'mt-3 p-3 bg-green-100 text-green-800 rounded-lg text-sm';
                 mensaje.textContent = '✅ Categorías actualizadas';
-                await cargarMisCategoriasResumen();
                 setTimeout(() => cerrarModalCategorias(), 1000);
             } catch (e) {
                 mensaje.className = 'mt-3 p-3 bg-red-100 text-red-800 rounded-lg text-sm';
@@ -344,7 +323,7 @@
         }
 
         // ============================================================
-        // SOLICITUDES
+        // Solicitudes
         // ============================================================
         async function cargarSolicitudes() {
             try {
@@ -391,7 +370,7 @@
 
         function abrirModal(solicitudId, titulo) {
             document.getElementById('solicitud_id_modal').value = solicitudId;
-            document.getElementById('proveedor_id_modal').value = proveedorIdActual;
+            document.getElementById('proveedor_id_modal').value = usuarioActual.id;
             document.getElementById('tituloSolicitud').textContent = 'Para: ' + titulo;
             document.getElementById('modalOferta').classList.remove('hidden');
         }
@@ -418,12 +397,15 @@
             }
         });
 
-        // Cargar al inicio
-        cargarSolicitudes();
-        cargarNotificaciones();
-        cargarMisCategoriasResumen();
-
-        setInterval(cargarNotificaciones, 30000);
+        // Inicializar
+        (async () => {
+            const ok = await verificarSesion();
+            if (ok) {
+                cargarSolicitudes();
+                cargarNotificaciones();
+                setInterval(cargarNotificaciones, 30000);
+            }
+        })();
     </script>
 </body>
 </html>

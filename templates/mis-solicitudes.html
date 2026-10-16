@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuienLoTiene - Mis Solicitudes</title>
+    <title>Mis Solicitudes - QuienLoTiene</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
 
     <header class="bg-blue-600 text-white shadow-lg">
-        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center flex-wrap gap-2">
             <h1 class="text-2xl font-bold">QuienLoTiene</h1>
-            <nav class="space-x-4">
+            <nav class="flex items-center gap-4 flex-wrap">
                 <a href="/" class="hover:underline">Inicio</a>
-                <a href="/registro" class="hover:underline">Registrarse</a>
-                <a href="/proveedor" class="hover:underline">Soy Proveedor</a>
                 <a href="/mis-solicitudes" class="underline font-bold">Mis Solicitudes</a>
+                <a href="/proveedor" class="hover:underline">Soy Proveedor</a>
+                <div id="zonaUsuario" class="flex items-center gap-2 text-sm">
+                    <span class="opacity-75">Cargando...</span>
+                </div>
             </nav>
         </div>
     </header>
@@ -23,29 +25,23 @@
     <section class="bg-blue-700 text-white py-8">
         <div class="container mx-auto px-4">
             <h2 class="text-3xl font-bold mb-2">Mis Solicitudes</h2>
-            <p class="opacity-90">Aquí ves tus solicitudes y las ofertas que has recibido</p>
-        </div>
-    </section>
-
-    <section class="container mx-auto px-4 py-6">
-        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4 flex items-center justify-between">
-            <div>
-                <p class="text-sm text-yellow-800">Viendo solicitudes de:</p>
-                <p class="font-bold text-yellow-900">Cliente ID: <span id="miId">1</span></p>
-            </div>
-            <button onclick="cambiarCliente()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                Cambiar
-            </button>
+            <p class="opacity-90" id="subtitulo">Cargando...</p>
         </div>
     </section>
 
     <section class="container mx-auto px-4 py-6">
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-2xl font-bold text-gray-800">Mis publicaciones</h3>
-            <button onclick="cargarMisSolicitudes()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                🔄 Refrescar
-            </button>
+            <div class="flex gap-2">
+                <a href="/" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    + Nueva solicitud
+                </a>
+                <button onclick="cargarMisSolicitudes()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                    🔄 Refrescar
+                </button>
+            </div>
         </div>
+
         <div id="listaSolicitudes" class="space-y-6">
             <p class="text-gray-500">Cargando tus solicitudes...</p>
         </div>
@@ -57,7 +53,7 @@
         </div>
     </footer>
 
-    <!-- MODAL DE WHATSAPP -->
+    <!-- MODAL WHATSAPP -->
     <div id="modalWhatsApp" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-lg shadow-2xl max-w-md w-full p-6 text-center">
             <div class="text-5xl mb-4">🎉</div>
@@ -83,20 +79,51 @@
     </div>
 
     <script>
-        let clienteIdActual = 1;
+        let usuarioActual = null;
 
-        function cambiarCliente() {
-            const nuevo = prompt("Ingresa el ID del cliente:", clienteIdActual);
-            if (nuevo && !isNaN(nuevo)) {
-                clienteIdActual = parseInt(nuevo);
-                document.getElementById('miId').textContent = clienteIdActual;
-                cargarMisSolicitudes();
+        // ============================================================
+        // Verificar sesion
+        // ============================================================
+        async function verificarSesion() {
+            try {
+                const resp = await fetch('/api/auth/yo');
+                if (!resp.ok) {
+                    window.location.href = '/login';
+                    return false;
+                }
+                const data = await resp.json();
+                usuarioActual = data.usuario;
+
+                // Mostrar nombre en header
+                document.getElementById('zonaUsuario').innerHTML = `
+                    <span class="opacity-75">Hola, ${usuarioActual.nombre.split(' ')[0]}</span>
+                    <button onclick="cerrarSesion()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-xs">
+                        Salir
+                    </button>
+                `;
+                document.getElementById('subtitulo').textContent =
+                    `Solicitudes publicadas por ${usuarioActual.nombre}`;
+                return true;
+            } catch (e) {
+                console.error(e);
+                window.location.href = '/login';
+                return false;
             }
         }
 
+        async function cerrarSesion() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+
+        // ============================================================
+        // Cargar mis solicitudes
+        // ============================================================
         async function cargarMisSolicitudes() {
+            if (!usuarioActual) return;
+
             try {
-                const resp = await fetch(`/api/solicitudes/cliente/${clienteIdActual}`);
+                const resp = await fetch(`/api/solicitudes/cliente/${usuarioActual.id}`);
                 const data = await resp.json();
                 const contenedor = document.getElementById('listaSolicitudes');
 
@@ -123,7 +150,6 @@
                     if (sol.estado === 'finalizada') estadoColor = 'bg-gray-100 text-gray-700';
                     if (sol.estado === 'cancelada') estadoColor = 'bg-red-100 text-red-700';
 
-                    // Botones de accion segun el estado
                     let botonesSolicitud = '';
                     if (sol.estado === 'nueva' || sol.estado === 'con_ofertas') {
                         botonesSolicitud = `
@@ -146,13 +172,9 @@
                             </div>
                         `;
                     } else if (sol.estado === 'finalizada') {
-                        botonesSolicitud = `
-                            <p class="text-sm text-green-700 font-medium">✓ Trato cerrado con éxito</p>
-                        `;
+                        botonesSolicitud = `<p class="text-sm text-green-700 font-medium">✓ Trato cerrado con éxito</p>`;
                     } else if (sol.estado === 'cancelada') {
-                        botonesSolicitud = `
-                            <p class="text-sm text-red-700 font-medium">✗ Solicitud cancelada</p>
-                        `;
+                        botonesSolicitud = `<p class="text-sm text-red-700 font-medium">✗ Solicitud cancelada</p>`;
                     }
 
                     div.innerHTML = `
@@ -176,7 +198,6 @@
                         </div>
                     `;
                     contenedor.appendChild(div);
-
                     cargarOfertasDeSolicitud(sol.id, sol.estado);
                 }
             } catch (e) {
@@ -212,7 +233,6 @@
                     let botones = '';
 
                     if (esAceptada) {
-                        // Oferta aceptada: mostrar WhatsApp + boton cambiar
                         botones = `
                             <div class="mt-3 p-3 bg-green-100 rounded-lg">
                                 <p class="text-green-800 font-medium text-sm mb-2">✅ Oferta aceptada</p>
@@ -230,7 +250,6 @@
                             </div>
                         `;
                     } else if (esPendiente && (estadoSolicitud === 'nueva' || estadoSolicitud === 'con_ofertas')) {
-                        // Oferta pendiente: boton aceptar
                         botones = `
                             <button onclick="aceptarOferta(${of.id}, '${(proveedor.nombre || '').replace(/'/g, "\\\\'")}', '${(proveedor.whatsapp || '').replace(/'/g, "\\\\'")}', '${of.precio || ''}')"
                                     class="mt-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-lg">
@@ -238,9 +257,7 @@
                             </button>
                         `;
                     } else if (esPendiente && estadoSolicitud === 'asignada') {
-                        botones = `
-                            <p class="mt-3 text-sm text-gray-500 italic">Otra oferta ya fue aceptada. Puedes cambiar de proveedor desde arriba.</p>
-                        `;
+                        botones = `<p class="mt-3 text-sm text-gray-500 italic">Otra oferta ya fue aceptada. Puedes cambiar de proveedor desde arriba.</p>`;
                     } else if (of.estado === 'rechazada') {
                         botones = `<p class="mt-3 text-sm text-gray-500 italic">Oferta rechazada</p>`;
                     }
@@ -294,14 +311,9 @@
             try {
                 const resp = await fetch(`/api/ofertas/${ofertaId}/cancelar-aceptacion`, { method: 'POST' });
                 const data = await resp.json();
-                if (data.ok) {
-                    cargarMisSolicitudes();
-                } else {
-                    alert('Error: ' + (data.error || 'Intenta de nuevo'));
-                }
-            } catch (e) {
-                alert('Error de conexión');
-            }
+                if (data.ok) cargarMisSolicitudes();
+                else alert('Error: ' + (data.error || ''));
+            } catch (e) { alert('Error de conexión'); }
         }
 
         async function cerrarTrato(solicitudId) {
@@ -309,15 +321,9 @@
             try {
                 const resp = await fetch(`/api/solicitudes/${solicitudId}/cerrar`, { method: 'POST' });
                 const data = await resp.json();
-                if (data.ok) {
-                    alert('✅ Trato cerrado con éxito');
-                    cargarMisSolicitudes();
-                } else {
-                    alert('Error: ' + (data.error || 'Intenta de nuevo'));
-                }
-            } catch (e) {
-                alert('Error de conexión');
-            }
+                if (data.ok) { alert('✅ Trato cerrado con éxito'); cargarMisSolicitudes(); }
+                else alert('Error: ' + (data.error || ''));
+            } catch (e) { alert('Error de conexión'); }
         }
 
         async function cancelarSolicitud(solicitudId) {
@@ -325,21 +331,20 @@
             try {
                 const resp = await fetch(`/api/solicitudes/${solicitudId}/cancelar`, { method: 'POST' });
                 const data = await resp.json();
-                if (data.ok) {
-                    cargarMisSolicitudes();
-                } else {
-                    alert('Error: ' + (data.error || 'Intenta de nuevo'));
-                }
-            } catch (e) {
-                alert('Error de conexión');
-            }
+                if (data.ok) cargarMisSolicitudes();
+                else alert('Error: ' + (data.error || ''));
+            } catch (e) { alert('Error de conexión'); }
         }
 
         function cerrarModalWhatsApp() {
             document.getElementById('modalWhatsApp').classList.add('hidden');
         }
 
-        cargarMisSolicitudes();
+        // Inicializar
+        (async () => {
+            const ok = await verificarSesion();
+            if (ok) cargarMisSolicitudes();
+        })();
     </script>
 </body>
 </html>
