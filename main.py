@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
 import database as db
+import emails
 
 load_dotenv()
 
@@ -59,8 +60,20 @@ async def api_registro(
     telefono: Optional[str] = Form(None),
     whatsapp: Optional[str] = Form(None),
 ):
-    """Registra un usuario con email/password. Envia email de verificacion."""
+    """Registra un usuario con email/password. Envia email de verificacion + bienvenida."""
     resultado = db.registrar_usuario_auth(email, password, nombre, rol, telefono, whatsapp)
+
+    # Si el registro fue exitoso, enviar correo de bienvenida
+    if resultado.get("ok"):
+        try:
+            bienvenida = emails.enviar_bienvenida(email, nombre, rol)
+            if bienvenida.get("ok"):
+                resultado["email_bienvenida"] = "enviado"
+            else:
+                resultado["email_bienvenida"] = f"fallo: {bienvenida.get('error')}"
+        except Exception as e:
+            resultado["email_bienvenida"] = f"error: {str(e)}"
+
     return resultado
 
 
@@ -77,7 +90,7 @@ async def api_login(
             key="access_token",
             value=resultado["access_token"],
             httponly=True,
-            max_age=60 * 60 * 24 * 7,  # 7 dias
+            max_age=60 * 60 * 24 * 7,
             samesite="lax",
         )
         return {"ok": True, "usuario": resultado["usuario"]}
@@ -105,7 +118,7 @@ async def api_yo(request: Request):
 
 
 # ============================================================
-# API - USUARIOS (legacy, mantenemos por compatibilidad)
+# API - USUARIOS (legacy)
 # ============================================================
 
 @app.post("/api/usuarios")

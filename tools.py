@@ -1,7 +1,8 @@
 """
 Herramientas personalizadas para el agente OTC de QuienLoTiene.
 - Consultas de solo lectura a Supabase
-- Búsqueda web gratuita (DuckDuckGo)
+- Busqueda web gratuita (DuckDuckGo)
+- Envio de correos electronicos (Resend)
 """
 
 import os
@@ -9,6 +10,8 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 from crewai.tools import tool
 from duckduckgo_search import DDGS
+import resend
+from resend.exceptions import ResendError
 
 load_dotenv()
 
@@ -118,6 +121,40 @@ def buscar_web(consulta: str) -> str:
 
 
 # ============================================================
+# HERRAMIENTA 5 - Enviar correo electronico (Resend)
+# ============================================================
+
+@tool("Enviar correo electronico a un usuario")
+def enviar_email(destinatario: str, asunto: str, cuerpo_html: str) -> str:
+    """
+    Envia un correo electronico usando Resend.
+    Args:
+        destinatario: direccion de correo del destinatario
+        asunto: asunto del correo
+        cuerpo_html: contenido del correo en formato HTML
+    """
+    try:
+        resend.api_key = os.getenv("RESEND_API_KEY")
+        if not resend.api_key:
+            return "Error: Falta RESEND_API_KEY en el archivo .env"
+
+        params = {
+            "from": "QuienLoTiene <no-reply@envios.quienlotiene.net>",
+            "to": [destinatario],
+            "subject": asunto,
+            "html": cuerpo_html,
+        }
+
+        email = resend.Emails.send(params)
+        return f"Correo enviado con exito. ID: {email.get('id', 'N/A')}"
+
+    except ResendError as e:
+        return f"Error de Resend: {str(e)}"
+    except Exception as e:
+        return f"Error inesperado al enviar correo: {str(e)}"
+
+
+# ============================================================
 # LISTA EXPORTABLE
 # ============================================================
 
@@ -126,4 +163,5 @@ herramientas_otc = [
     consultar_tabla,
     contar_filas,
     buscar_web,
+    enviar_email,
 ]
