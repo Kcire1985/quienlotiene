@@ -4,3 +4,8 @@ supabase
 python-dotenv
 jinja2
 python-multipart
+resend
+pyjwt
+duckduckgo-search
+crewai
+crewai-tools
